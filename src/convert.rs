@@ -1,4 +1,4 @@
-use serde_json::Value;
+use serde_json::{Map, Value};
 use std::collections::{HashMap, HashSet};
 use std::error::Error;
 use std::hash::Hash;
@@ -39,25 +39,45 @@ fn process_array_items(items: Vec<Value>) -> (Vec<String>, Vec<HashMap<String, S
     let mut rows = vec![];
 
     for item in items {
-        if let Value::Object(map) = item {
+        if let Value::Object(fields) = item {
             let mut row = HashMap::new();
-            for key in map.keys() {
-                headers.insert(key.to_owned());
-
-                let string = map.get(key).map(value_to_string).unwrap_or_default();
-                row.insert(key.to_owned(), string);
-            }
+            process_json_fields("".to_string(), &mut headers, &fields, &mut row);
             rows.push(row);
         }
     }
     (headers.vec, rows)
 }
 
-fn value_to_string(value: &Value) -> String {
-    match value {
-        Value::String(string) => string.to_owned(),
-        Value::Null => "".to_owned(),
-        _ => value.to_string(),
+fn process_json_fields(
+    prefix: String,
+    headers: &mut Headers<String>,
+    fields: &Map<String, Value>,
+    row: &mut HashMap<String, String>,
+) {
+    for key in fields.keys() {
+        let composite_key = format!("{}{}", prefix, key);
+        let value = fields.get(key);
+        match value {
+            Some(Value::String(string)) => {
+                headers.insert(composite_key.to_owned());
+                row.insert(composite_key.to_owned(), string.to_owned());
+            }
+            Some(Value::Null) => {
+                headers.insert(composite_key.to_owned());
+                row.insert(composite_key.to_owned(), "".to_owned());
+            }
+            Some(Value::Object(map)) => {
+                process_json_fields(format!("{}.", composite_key), headers, map, row)
+            }
+            Some(value) => {
+                headers.insert(composite_key.to_owned());
+                row.insert(composite_key.to_owned(), value.to_string());
+            }
+            None => {
+                headers.insert(composite_key.to_owned());
+                row.insert(composite_key.to_owned(), "".to_owned());
+            }
+        }
     }
 }
 
@@ -99,7 +119,11 @@ mod tests {
     "last_name": "Simpson",
     "number_of_children": 3,
     "married": true,
-    "additional_information": "Some additional information"
+    "additional_information": "Some additional information",
+    "address": {
+      "street": "742, Evergreen Terrace",
+      "city": "Springfield"
+    }
   }
 ]"#;
 
@@ -109,9 +133,9 @@ mod tests {
         assert!(result.is_ok());
         assert_eq!(
             result.unwrap(),
-            r#"first_name,last_name,married,additional_information,number_of_children
-Max,Power,false,,
-Homer J.,Simpson,true,Some additional information,3
+            r#"first_name,last_name,married,additional_information,number_of_children,address.street,address.city
+Max,Power,false,,,,
+Homer J.,Simpson,true,Some additional information,3,"742, Evergreen Terrace",Springfield
 "#
         );
     }
