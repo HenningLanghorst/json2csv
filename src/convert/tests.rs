@@ -24,7 +24,7 @@ fn json_array() {
 ]"#;
 
     let value: Value = serde_json::from_str(json).unwrap();
-    let result = convert(value);
+    let result = convert(value, ',');
 
     assert!(result.is_ok());
     assert_eq!(

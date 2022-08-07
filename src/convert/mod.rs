@@ -27,11 +27,11 @@ impl<T: Eq + Hash + Clone> Headers<T> {
     }
 }
 
-pub fn convert(json: Value) -> Result<String, Box<dyn Error>> {
+pub fn convert(json: Value, delimiter: char) -> Result<String, Box<dyn Error>> {
     match json {
         Value::Array(items) => {
             let (headers, rows) = process_array_items(items);
-            create_csv(headers, rows)
+            create_csv(headers, rows, delimiter)
         }
         _ => Ok("".to_string()),
     }
@@ -87,8 +87,12 @@ fn process_json_fields(
 fn create_csv(
     headers: Vec<String>,
     rows: Vec<HashMap<String, String>>,
+    delimiter: char,
 ) -> Result<String, Box<dyn Error>> {
-    let mut writer = csv::Writer::from_writer(Vec::new());
+    let mut writer = csv::WriterBuilder::new()
+        .delimiter(u8::try_from(delimiter)?)
+        .from_writer(Vec::new());
+
     writer.write_record(&headers)?;
     for row in rows {
         let record: Vec<String> = headers
@@ -102,4 +106,3 @@ fn create_csv(
     let string = String::from_utf8(bytes)?;
     Ok(string)
 }
-
