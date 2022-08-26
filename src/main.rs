@@ -10,9 +10,14 @@ mod convert;
 
 fn main() {
     let parameters: Parameters = Parameters::parse();
-    let input: Box<dyn Read> = Box::new(io::stdin());
 
-    match convert_input_to_csv(input, parameters.delimiter()) {
+    let mut input = String::new();
+    if let Err(e) = io::stdin().read_to_string(&mut input) {
+        eprintln!("Error: {}", e);
+        exit(1);
+    }
+
+    match convert_input_to_csv(&input, parameters.delimiter()) {
         Ok(csv) => {
             println!("{}", csv);
         }

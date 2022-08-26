@@ -2,7 +2,6 @@ use serde_json::{Map, Value};
 use std::collections::{HashMap, HashSet};
 use std::error::Error;
 use std::hash::Hash;
-use std::io::Read;
 
 #[cfg(test)]
 mod tests;
@@ -28,34 +27,46 @@ impl<T: Eq + Hash + Clone> Headers<T> {
     }
 }
 
-pub fn convert_input_to_csv(
-    input: Box<dyn Read>,
-    delimiter: char,
-) -> Result<String, Box<dyn Error>> {
-    let result: Value = serde_json::from_reader(input)?;
-
-    match result {
-        Value::Array(items) => Ok(convert_json_objects_to_csv(items, delimiter)?),
-        _ => Ok("".to_string()),
+pub fn convert_input_to_csv(input: &str, delimiter: char) -> Result<String, Box<dyn Error>> {
+    match serde_json::from_str(input) {
+        Ok(Value::Object(obj)) if obj.len() == 1 => {
+            if let Some((_, Value::Array(items))) = obj.iter().next() {
+                return convert_json_objects_to_csv(items, delimiter);
+            }
+        }
+        Ok(Value::Array(items)) => {
+            return convert_json_objects_to_csv(&items, delimiter);
+        }
+        _ => {}
     }
+
+    let items_from_lines: Vec<Value> = input
+        .lines()
+        .filter_map::<Value, _>(|line| match serde_json::from_str::<Value>(line) {
+            Ok(value) => Some(value),
+            Err(e) => {
+                eprintln!("Cannot parse line '{}' ({})", line, e);
+                None
+            }
+        })
+        .collect();
+
+    convert_json_objects_to_csv(&items_from_lines, delimiter)
 }
 
-fn convert_json_objects_to_csv(
-    items: Vec<Value>,
-    delimiter: char,
-) -> Result<String, Box<dyn Error>> {
+fn convert_json_objects_to_csv(items: &[Value], delimiter: char) -> Result<String, Box<dyn Error>> {
     let (headers, rows) = extract_csv_data(items);
     create_csv_output(headers, rows, delimiter)
 }
 
-fn extract_csv_data(items: Vec<Value>) -> (Vec<String>, Vec<HashMap<String, String>>) {
+fn extract_csv_data(items: &[Value]) -> (Vec<String>, Vec<HashMap<String, String>>) {
     let mut headers = Headers::new();
     let mut rows = vec![];
 
     for item in items {
         if let Value::Object(fields) = item {
             let mut row = HashMap::new();
-            process_json_fields("".to_string(), &mut headers, &fields, &mut row);
+            process_json_fields("".to_string(), &mut headers, fields, &mut row);
             rows.push(row);
         }
     }
