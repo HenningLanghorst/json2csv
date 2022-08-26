@@ -2,6 +2,7 @@ use serde_json::{Map, Value};
 use std::collections::{HashMap, HashSet};
 use std::error::Error;
 use std::hash::Hash;
+use std::io::Read;
 
 #[cfg(test)]
 mod tests;
@@ -27,17 +28,27 @@ impl<T: Eq + Hash + Clone> Headers<T> {
     }
 }
 
-pub fn convert(json: Value, delimiter: char) -> Result<String, Box<dyn Error>> {
-    match json {
-        Value::Array(items) => {
-            let (headers, rows) = process_array_items(items);
-            create_csv(headers, rows, delimiter)
-        }
+pub fn convert_input_to_csv(
+    input: Box<dyn Read>,
+    delimiter: char,
+) -> Result<String, Box<dyn Error>> {
+    let result: Value = serde_json::from_reader(input)?;
+
+    match result {
+        Value::Array(items) => Ok(convert_json_objects_to_csv(items, delimiter)?),
         _ => Ok("".to_string()),
     }
 }
 
-fn process_array_items(items: Vec<Value>) -> (Vec<String>, Vec<HashMap<String, String>>) {
+fn convert_json_objects_to_csv(
+    items: Vec<Value>,
+    delimiter: char,
+) -> Result<String, Box<dyn Error>> {
+    let (headers, rows) = extract_csv_data(items);
+    create_csv_output(headers, rows, delimiter)
+}
+
+fn extract_csv_data(items: Vec<Value>) -> (Vec<String>, Vec<HashMap<String, String>>) {
     let mut headers = Headers::new();
     let mut rows = vec![];
 
@@ -84,7 +95,7 @@ fn process_json_fields(
     }
 }
 
-fn create_csv(
+fn create_csv_output(
     headers: Vec<String>,
     rows: Vec<HashMap<String, String>>,
     delimiter: char,

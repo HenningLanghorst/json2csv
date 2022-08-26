@@ -6,10 +6,16 @@ pub use clap::Parser;
 pub struct Parameters {
     /// Delimiter to be used for separating columns.
     #[clap(short, long, value_parser, default_value = ";", group = "delim")]
-    pub delimiter: char,
+    delimiter: char,
     /// Use tabulator as delimiter to be used for separating columns.
-    #[clap(short='t', long, value_parser, default_value = "false", group = "delim")]
-    pub delimiter_tab: bool,
+    #[clap(
+        short = 't',
+        long,
+        value_parser,
+        default_value = "false",
+        group = "delim"
+    )]
+    delimiter_tab: bool,
 }
 
 impl Parameters {

@@ -1,5 +1,4 @@
-use crate::convert::convert;
-use serde_json::Value;
+use crate::convert::convert_input_to_csv;
 
 #[test]
 fn json_array() {
@@ -23,8 +22,9 @@ fn json_array() {
   }
 ]"#;
 
-    let value: Value = serde_json::from_str(json).unwrap();
-    let result = convert(value, ',');
+    let result = convert_input_to_csv(Box::new(json.as_bytes()), ',');
+
+    println!("{:?}", result);
 
     assert!(result.is_ok());
     assert_eq!(

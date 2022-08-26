@@ -1,6 +1,8 @@
 use crate::cli::Parameters;
+use crate::convert::convert_input_to_csv;
 use clap::Parser;
 use std::io;
+use std::io::Read;
 use std::process::exit;
 
 mod cli;
@@ -8,19 +10,14 @@ mod convert;
 
 fn main() {
     let parameters: Parameters = Parameters::parse();
+    let input: Box<dyn Read> = Box::new(io::stdin());
 
-    match serde_json::from_reader(io::stdin()) {
-        Ok(json) => match convert::convert(json, parameters.delimiter()) {
-            Ok(csv) => {
-                println!("{}", csv);
-            }
-            Err(e) => {
-                eprintln!("Error converting json to csv: {}", e);
-                exit(1);
-            }
-        },
+    match convert_input_to_csv(input, parameters.delimiter()) {
+        Ok(csv) => {
+            println!("{}", csv);
+        }
         Err(e) => {
-            eprintln!("Error parsing json: {}", e);
+            eprintln!("Error: {}", e);
             exit(1);
         }
     }
